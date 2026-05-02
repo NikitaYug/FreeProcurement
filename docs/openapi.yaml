@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: API Системы закупок
+  version: 1.0.0
+  description: REST API для управления заявками на закупку и формирования лотов.
+tags:
+  - name: Requests
+    description: Управление заявками
+  - name: Lots
+    description: Управление лотами
+
+paths:
+  /api/requests/create:
+    post:
+      tags:
+        - Requests
+      summary: Создать заявку
+      description: Создает новую черновую заявку на закупку товаров или услуг.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequestDto'
+      responses:
+        '201':
+          description: Заявка успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestResponse'
+        '400':
+          description: Некорректные данные запроса
+
+  /api/requests/submit:
+    post:
+      tags:
+        - Requests
+      summary: Отправить заявку на согласование
+      description: Переводит статус заявки из черновика в статус ожидания согласования.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requestId:
+                  type: integer
+                  example: 123
+                  description: Уникальный идентификатор заявки
+      responses:
+        '200':
+          description: Заявка отправлена на согласование
+        '404':
+          description: Заявка не найдена
+
+  /api/lots/create-from-requests:
+    post:
+      tags:
+        - Lots
+      summary: Сформировать лот из утверждённых заявок
+      description: Объединяет несколько утвержденных заявок в один лот для проведения закупки.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requestIds:
+                  type: array
+                  items:
+                    type: integer
+                  example: [123, 124, 125]
+                  description: Массив ID утвержденных заявок
+                lotName:
+                  type: string
+                  example: "Закупка офисной техники на Q3"
+      responses:
+        '201':
+          description: Лот успешно сформирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotResponse'
+        '400':
+          description: Одна или несколько заявок не утверждены
+
+  /api/lots:
+    get:
+      tags:
+        - Lots
+      summary: Получить список лотов
+      description: Возвращает список всех созданных лотов в системе с возможностью фильтрации.
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу лота
+          required: false
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, COMPLETED]
+      responses:
+        '200':
+          description: Успешный ответ со списком лотов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LotResponse'
+
+  /api/lots/list-lot:
+    post:
+      tags:
+        - Lots
+      summary: Опубликовать лот (запустить закупку)
+      description: Публикует сформированный лот, делая его доступным для поставщиков, и запускает процедуру закупки.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lotId:
+                  type: integer
+                  example: 456
+                  description: Уникальный идентификатор лота
+      responses:
+        '200':
+          description: Лот успешно опубликован
+        '404':
+          description: Лот не найден
+
+components:
+  schemas:
+    CreateRequestDto:
+      type: object
+      required:
+        - itemName
+        - quantity
+      properties:
+        itemName:
+          type: string
+          description: Наименование товара/услуги
+          example: "Ноутбук Lenovo ThinkPad"
+        quantity:
+          type: integer
+          description: Количество
+          example: 5
+        estimatedPrice:
+          type: number
+          format: float
+          description: Ожидаемая цена за единицу
+          example: 120000.00
+          
+    RequestResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        itemName:
+          type: string
+          example: "Ноутбук Lenovo ThinkPad"
+        status:
+          type: string
+          example: "DRAFT"
+          
+    LotResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 456
+        lotName:
+          type: string
+          example: "Закупка офисной техники на Q3"
+        status:
+          type: string
+          example: "CREATED"
